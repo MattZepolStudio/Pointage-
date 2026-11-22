@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#3b2418">
+<title>Pointage du soir</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --choco:#3b2418; --choco2:#5a3825; --creme:#faf4ec; --carte:#fffaf3;
+    --or:#c8964a; --texte:#2a1a10; --doux:#8a7262; --vert:#2e7d4f; --rouge:#c62828;
+    --ligne:#ead9c6;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--creme);color:var(--texte);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:17px}
+  header{position:sticky;top:0;z-index:10;background:var(--choco);color:#fff;
+    padding:calc(env(safe-area-inset-top) + 12px) 16px 10px}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  h1{font-size:1.15rem;margin:0;font-weight:700;letter-spacing:.2px}
+  .date{font-size:.85rem;opacity:.8;margin-top:2px}
+  .progress{height:8px;background:rgba(255,255,255,.18);border-radius:8px;margin-top:10px;overflow:hidden}
+  .progress>div{height:100%;background:var(--or);width:0;transition:width .25s}
+  .count{font-size:.85rem;margin-top:5px;opacity:.9}
+  nav{display:flex;gap:6px;margin-top:10px}
+  nav button{flex:1;border:0;border-radius:10px;padding:9px 4px;font-size:.9rem;font-weight:600;
+    background:rgba(255,255,255,.12);color:#fff}
+  nav button.on{background:#fff;color:var(--choco)}
+  main{padding:14px 12px calc(env(safe-area-inset-bottom) + 40px);max-width:640px;margin:0 auto}
+
+  /* Bandeau important */
+  .alerte{background:var(--rouge);color:#fff;border-radius:16px;padding:14px 14px 10px;margin-bottom:14px;
+    box-shadow:0 4px 14px rgba(198,40,40,.35);border:3px solid #ffeb3b;animation:pulse 1.6s infinite}
+  .alerte.fait{background:var(--vert);border-color:#b9f6ca;animation:none;box-shadow:none}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(198,40,40,.55)}50%{box-shadow:0 0 0 9px rgba(198,40,40,0)}}
+  .alerte h2{margin:0 0 8px;font-size:1.2rem;text-transform:uppercase;letter-spacing:.5px;display:flex;gap:8px;align-items:center}
+  .alerte .item{border-color:rgba(255,255,255,.25)}
+  .alerte .box{border-color:#fff;background:rgba(255,255,255,.15)}
+  .alerte .item.ok .box{background:#fff;color:var(--vert)}
+  .alerte .item.ok .nom{text-decoration:line-through;opacity:.85}
+
+  .cat{background:var(--carte);border:1px solid var(--ligne);border-radius:16px;margin-bottom:12px;overflow:hidden}
+  .cat-h{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;
+    background:#f3e6d6;font-weight:700;color:var(--choco)}
+  .cat-h .n{font-size:.85rem;font-weight:600;color:var(--doux)}
+  .cat.complete .cat-h{background:#dff0e5;color:var(--vert)}
+  .cat.complete .cat-h .n{color:var(--vert)}
+  .item{display:flex;align-items:center;gap:12px;padding:13px 14px;border-top:1px solid var(--ligne);
+    cursor:pointer;user-select:none;min-height:52px}
+  .item:first-child{border-top:0}
+  .box{flex:none;width:28px;height:28px;border-radius:8px;border:2.5px solid var(--choco2);
+    display:grid;place-items:center;font-weight:900;font-size:18px;color:#fff;transition:background .12s}
+  .item.ok .box{background:var(--vert);border-color:var(--vert)}
+  .item.ok .nom{color:var(--doux);text-decoration:line-through}
+  .vide{color:var(--doux);text-align:center;padding:30px 10px}
+
+  .fini{background:var(--vert);color:#fff;text-align:center;border-radius:14px;padding:14px;font-weight:700;margin-bottom:14px}
+
+  /* Historique */
+  .h-jour{background:var(--carte);border:1px solid var(--ligne);border-radius:14px;margin-bottom:10px;overflow:hidden}
+  .h-jour summary{list-style:none;padding:13px 14px;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+  .h-jour summary::-webkit-details-marker{display:none}
+  .badge{font-size:.8rem;font-weight:700;padding:4px 9px;border-radius:20px;background:#fde2e2;color:var(--rouge)}
+  .badge.ok{background:#dff0e5;color:var(--vert)}
+  .h-corps{padding:0 14px 12px;font-size:.92rem}
+  .h-corps h4{margin:10px 0 4px;color:var(--choco)}
+  .h-corps .l{padding:2px 0}
+  .manque{color:var(--rouge)} .fait-l{color:var(--vert)}
+
+  /* Paramètres */
+  .p-cat{background:var(--carte);border:1px solid var(--ligne);border-radius:16px;padding:12px;margin-bottom:12px}
+  .p-cat.alert-on{border:2px solid var(--rouge)}
+  .row{display:flex;gap:6px;align-items:center}
+  input[type=text]{flex:1;min-width:0;font-size:16px;padding:10px;border:1px solid var(--ligne);border-radius:10px;background:#fff;color:var(--texte)}
+  .p-cat>.row input{font-weight:700}
+  .ib{flex:none;width:38px;height:40px;border:0;border-radius:10px;background:#f3e6d6;color:var(--choco);font-size:16px}
+  .ib.del{background:#fde2e2;color:var(--rouge)}
+  .p-items{margin:8px 0 0 10px;display:flex;flex-direction:column;gap:6px}
+  .p-items input{font-weight:400}
+  .toggle{display:flex;align-items:center;gap:8px;margin:10px 0 2px;font-size:.92rem;color:var(--choco)}
+  .toggle input{width:22px;height:22px;accent-color:var(--rouge)}
+  .btn{display:block;width:100%;border:0;border-radius:12px;padding:13px;font-size:1rem;font-weight:700;margin-top:8px}
+  .btn.prim{background:var(--choco);color:#fff}
+  .btn.sec{background:#f3e6d6;color:var(--choco)}
+  .btn.dang{background:#fde2e2;color:var(--rouge)}
+  .btn.add{background:transparent;border:2px dashed var(--ligne);color:var(--doux);padding:9px;font-weight:600;margin-top:6px}
+  .section-t{font-weight:700;color:var(--doux);font-size:.85rem;text-transform:uppercase;margin:20px 4px 6px}
+  .note{font-size:.82rem;color:var(--doux);margin:4px 4px 0}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <div>
+      <h1>🍫 Pointage du soir</h1>
+      <div class="date" id="date"></div>
+    </div>
+  </div>
+  <div id="prog-wrap">
+    <div class="progress"><div id="bar"></div></div>
+    <div class="count" id="count"></div>
+  </div>
+  <nav>
+    <button data-v="liste" class="on">Pointage</button>
+    <button data-v="histo">Historique</button>
+    <button data-v="param">Paramètres</button>
+  </nav>
+</header>
+<main id="main"></main>
+<input type="file" id="fichier" accept="application/json,.json" class="hidden">
+
+<script>
+const KEY = 'pointage-chocolaterie-v1';
+const HEURE_RAZ = 8;            // remise à zéro à 8h00
+const MAX_HISTO = 120;          // nb de jours gardés
+
+const uid = () => Math.random().toString(36).slice(2, 10);
+const cat = (name, items, alert=false) => ({ id: uid(), name, alert, items: items.map(n => ({ id: uid(), name: n })) });
+
+function configParDefaut(){
+  return [
+    cat('Ne pas oublier Rouvres', ['Agenda', 'Cahier', 'Bloc-note'], true),
+    cat('Commandes de Dijon', ["Mettre les commandes de Dijon sur l'étagère"], true),
+    cat('Sacs', ['Sac 250 g','Sac 400 g','Sac 500 g','Sac 800 g – 1 kg','Sac tubos','Sac 25 macarons',
+      'Sac réglette escargots','Sac tissus','Sac petit sujet','Sac grand sujet','Sac « JP » petit papier']),
+    cat('Confiseries', ['Pâte à tartiner noisette','Pâte à tartiner caramel','Coffret pâte de fruits',
+      'Sablé pur beurre','Sablé praliné pistache','Sablé praliné arachides','Sablé rocher lait','Truffes','Marrons glacés']),
+    cat('Oursons', ['Noir','Lait']),
+    cat('Ballotins', ['250 g','400 g','500 g','800 g','1 kg','Boîte carrée coffret']),
+    cat('Moulages', ['Sapin noir – petit','Sapin noir – grand','Sapin lait – petit','Sapin lait – grand',
+      'Pingouin noir – petit','Pingouin noir – grand','Pingouin lait – petit','Pingouin lait – grand'])
+  ];
+}
+
+// ---------- Jour de pointage : avant 8h, on est encore sur le pointage de la veille ----------
+const pad = n => String(n).padStart(2,'0');
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+function jourPointage(d = new Date()){
+  const x = new Date(d);
+  if (x.getHours() < HEURE_RAZ) x.setDate(x.getDate() - 1);
+  return ymd(x);
+}
+function joliJour(s, court=false){
+  const [y,m,d] = s.split('-').map(Number);
+  return new Date(y, m-1, d).toLocaleDateString('fr-FR',
+    court ? { weekday:'short', day:'numeric', month:'short' } : { weekday:'long', day:'numeric', month:'long' });
+}
+
+// ---------- Stockage ----------
+let S;
+function charger(){
+  try { S = JSON.parse(localStorage.getItem(KEY)); } catch(e) { S = null; }
+  if (!S || !Array.isArray(S.categories)) S = { categories: configParDefaut(), day: jourPointage(), checks:{}, lastAt:null, history:[] };
+  S.checks ||= {}; S.history ||= [];
+}
+function sauver(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e) { alert("Impossible d'enregistrer : " + e.message); } }
+
+function instantane(){
+  let fait = 0, total = 0;
+  const categories = S.categories.map(c => ({
+    name: c.name, alert: c.alert,
+    items: c.items.map(i => { const ok = !!S.checks[i.id]; total++; if (ok) fait++; return { name: i.name, ok }; })
+  }));
+  return { day: S.day, fait, total, lastAt: S.lastAt, categories };
+}
+
+// Archive le pointage précédent et repart de zéro si on a passé 8h00
+function verifierRAZ(){
+  const j = jourPointage();
+  if (S.day === j) return false;
+  if (Object.values(S.checks).some(Boolean)) {
+    S.history = S.history.filter(h => h.day !== S.day);
+    S.history.unshift(instantane());
+    S.history = S.history.slice(0, MAX_HISTO);
+  }
+  S.day = j; S.checks = {}; S.lastAt = null;
+  sauver();
+  return true;
+}
+
+// ---------- Rendu ----------
+let vue = 'liste';
+const $main = document.getElementById('main');
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function entete(){
+  document.getElementById('date').textContent = 'Pointage du ' + joliJour(S.day);
+  const tous = S.categories.flatMap(c => c.items);
+  const fait = tous.filter(i => S.checks[i.id]).length;
+  document.getElementById('bar').style.width = tous.length ? (fait / tous.length * 100) + '%' : '0';
+  document.getElementById('count').textContent = `${fait} / ${tous.length} cochés`;
+  document.getElementById('prog-wrap').classList.toggle('hidden', vue !== 'liste');
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.v === vue));
+}
+
+function itemHTML(i){
+  const ok = !!S.checks[i.id];
+  return `<div class="item ${ok?'ok':''}" data-id="${i.id}"><div class="box">${ok?'✓':''}</div><div class="nom">${esc(i.name)}</div></div>`;
+}
+
+function renduListe(){
+  const alertes = S.categories.filter(c => c.alert && c.items.length);
+  const normales = S.categories.filter(c => !c.alert);
+  const tous = S.categories.flatMap(c => c.items);
+  const toutFait = tous.length && tous.every(i => S.checks[i.id]);
+  let h = '';
+  if (toutFait) h += `<div class="fini">✅ Pointage terminé, bonne soirée !</div>`;
+  for (const c of alertes) {
+    const ok = c.items.every(i => S.checks[i.id]);
+    h += `<div class="alerte ${ok?'fait':''}"><h2>${ok?'✅':'⚠️'} ${esc(c.name)}</h2>${c.items.map(itemHTML).join('')}</div>`;
+  }
+  for (const c of normales) {
+    const n = c.items.filter(i => S.checks[i.id]).length;
+    const comp = c.items.length && n === c.items.length;
+    h += `<div class="cat ${comp?'complete':''}"><div class="cat-h"><span>${comp?'✓ ':''}${esc(c.name)}</span><span class="n">${n}/${c.items.length}</span></div>
+      ${c.items.length ? c.items.map(itemHTML).join('') : '<div class="vide">Aucun article</div>'}</div>`;
+  }
+  if (!S.categories.length) h = `<div class="vide">Aucune catégorie. Ajoutez-en dans Paramètres.</div>`;
+  $main.innerHTML = h;
+}
+
+function renduHisto(){
+  if (!S.history.length) { $main.innerHTML = `<div class="vide">Pas encore d'historique.<br>Chaque pointage est archivé ici automatiquement le lendemain à ${HEURE_RAZ}h00.</div>`; return; }
+  $main.innerHTML = S.history.map(h => {
+    const complet = h.fait === h.total;
+    const heure = h.lastAt ? ' · ' + new Date(h.lastAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : '';
+    const corps = h.categories.map(c => `<h4>${esc(c.name)}</h4>` + c.items.map(i =>
+      `<div class="l ${i.ok?'fait-l':'manque'}">${i.ok?'✓':'✗'} ${esc(i.name)}</div>`).join('')).join('');
+    return `<details class="h-jour"><summary><span><b>${esc(joliJour(h.day,true))}</b><span style="color:var(--doux);font-size:.85rem">${heure}</span></span>
+      <span class="badge ${complet?'ok':''}">${complet?'Complet':`${h.fait}/${h.total}`}</span></summary><div class="h-corps">${corps}</div></details>`;
+  }).join('');
+}
+
+function renduParam(){
+  let h = `<p class="note">Les modifications sont enregistrées automatiquement. Cochez « Bandeau important » pour afficher une catégorie en rouge tout en haut.</p>`;
+  S.categories.forEach((c, ci) => {
+    h += `<div class="p-cat ${c.alert?'alert-on':''}" data-c="${ci}">
+      <div class="row">
+        <input type="text" value="${esc(c.name)}" data-act="nomCat" placeholder="Nom de la catégorie">
+        <button class="ib" data-act="hautCat" ${ci===0?'disabled':''}>▲</button>
+        <button class="ib" data-act="basCat" ${ci===S.categories.length-1?'disabled':''}>▼</button>
+        <button class="ib del" data-act="supCat">🗑</button>
+      </div>
+      <label class="toggle"><input type="checkbox" data-act="alerte" ${c.alert?'checked':''}> Bandeau important (rouge)</label>
+      <div class="p-items">
+        ${c.items.map((i, ii) => `<div class="row" data-i="${ii}">
+          <input type="text" value="${esc(i.name)}" data-act="nomItem" placeholder="Article">
+          <button class="ib" data-act="hautItem" ${ii===0?'disabled':''}>▲</button>
+          <button class="ib" data-act="basItem" ${ii===c.items.length-1?'disabled':''}>▼</button>
+          <button class="ib del" data-act="supItem">✕</button></div>`).join('')}
+        <button class="btn add" data-act="ajoutItem">+ Ajouter un article</button>
+      </div></div>`;
+  });
+  h += `<button class="btn prim" data-act="ajoutCat">+ Ajouter une catégorie</button>
+    <div class="section-t">Sauvegarde</div>
+    <button class="btn sec" data-act="export">Exporter une sauvegarde</button>
+    <button class="btn sec" data-act="import">Importer une sauvegarde</button>
+    <p class="note">Utile si vous changez de téléphone ou videz les données du navigateur.</p>
+    <div class="section-t">Réinitialiser</div>
+    <button class="btn sec" data-act="decocher">Tout décocher maintenant</button>
+    <button class="btn dang" data-act="defaut">Revenir à la liste d'origine</button>
+    <button class="btn dang" data-act="videHisto">Effacer l'historique</button>
+    <p class="note">La liste se remet à zéro automatiquement chaque jour à ${HEURE_RAZ}h00 ; le pointage de la veille part dans l'historique.</p>`;
+  $main.innerHTML = h;
+}
+
+function rendu(){
+  verifierRAZ();
+  entete();
+  if (vue === 'liste') renduListe();
+  else if (vue === 'histo') renduHisto();
+  else renduParam();
+}
+
+// ---------- Événements ----------
+document.querySelector('nav').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  vue = b.dataset.v; window.scrollTo(0,0); rendu();
+});
+
+$main.addEventListener('click', e => {
+  if (vue === 'liste') {
+    const it = e.target.closest('.item'); if (!it) return;
+    if (verifierRAZ()) { rendu(); return; }
+    const id = it.dataset.id;
+    if (S.checks[id]) delete S.checks[id]; else S.checks[id] = true;
+    S.lastAt = Date.now();
+    if (navigator.vibrate) navigator.vibrate(15);
+    sauver(); entete(); renduListe();
+    return;
+  }
+  if (vue !== 'param') return;
+  const b = e.target.closest('[data-act]'); if (!b || b.tagName === 'INPUT') return;
+  const pc = b.closest('[data-c]'); const ci = pc ? +pc.dataset.c : -1;
+  const pr = b.closest('[data-i]'); const ii = pr ? +pr.dataset.i : -1;
+  const c = S.categories[ci];
+  const swap = (arr, a, z) => { [arr[a], arr[z]] = [arr[z], arr[a]]; };
+  switch (b.dataset.act) {
+    case 'hautCat': swap(S.categories, ci, ci-1); break;
+    case 'basCat': swap(S.categories, ci, ci+1); break;
+    case 'supCat': if (!confirm(`Supprimer la catégorie « ${c.name} » et ses ${c.items.length} articles ?`)) return; S.categories.splice(ci,1); break;
+    case 'hautItem': swap(c.items, ii, ii-1); break;
+    case 'basItem': swap(c.items, ii, ii+1); break;
+    case 'supItem': if (!confirm(`Supprimer « ${c.items[ii].name} » ?`)) return; c.items.splice(ii,1); break;
+    case 'ajoutItem': c.items.push({ id: uid(), name: '' }); sauver(); renduParam();
+      { const ins = $main.querySelectorAll(`[data-c="${ci}"] .p-items input`); ins[ins.length-1]?.focus(); } return;
+    case 'ajoutCat': S.categories.push({ id: uid(), name: '', alert:false, items:[] }); sauver(); renduParam();
+      { const ins = $main.querySelectorAll('.p-cat > .row input'); ins[ins.length-1]?.focus(); } return;
+    case 'export': exporter(); return;
+    case 'import': document.getElementById('fichier').click(); return;
+    case 'decocher': if (!confirm('Tout décocher ? (le pointage en cours ne sera pas archivé)')) return; S.checks = {}; S.lastAt = null; break;
+    case 'defaut': if (!confirm("Remettre la liste d'origine ? Vos modifications de catégories seront perdues.")) return; S.categories = configParDefaut(); S.checks = {}; break;
+    case 'videHisto': if (!confirm("Effacer tout l'historique ?")) return; S.history = []; break;
+    default: return;
+  }
+  sauver(); renduParam();
+});
+
+$main.addEventListener('input', e => {
+  if (vue !== 'param') return;
+  const el = e.target; const ci = +el.closest('[data-c]')?.dataset.c;
+  if (el.dataset.act === 'nomCat') S.categories[ci].name = el.value;
+  else if (el.dataset.act === 'nomItem') S.categories[ci].items[+el.closest('[data-i]').dataset.i].name = el.value;
+  else return;
+  sauver();
+});
+$main.addEventListener('change', e => {
+  if (vue !== 'param' || e.target.dataset.act !== 'alerte') return;
+  S.categories[+e.target.closest('[data-c]').dataset.c].alert = e.target.checked;
+  sauver(); renduParam();
+});
+
+function exporter(){
+  const blob = new Blob([JSON.stringify(S, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `pointage-sauvegarde-${ymd(new Date())}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+document.getElementById('fichier').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const d = JSON.parse(await f.text());
+    if (!Array.isArray(d.categories)) throw new Error('fichier non reconnu');
+    if (!confirm('Remplacer la liste et l\'historique actuels par cette sauvegarde ?')) return;
+    S = d; S.checks ||= {}; S.history ||= []; sauver(); rendu(); alert('Sauvegarde importée ✔');
+  } catch(err) { alert('Import impossible : ' + err.message); }
+  e.target.value = '';
+});
+
+// Vérifie la remise à zéro quand l'appli revient au premier plan, et chaque minute
+document.addEventListener('visibilitychange', () => { if (!document.hidden && verifierRAZ()) rendu(); });
+setInterval(() => { if (verifierRAZ()) rendu(); }, 60000);
+
+charger(); rendu();
+
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
