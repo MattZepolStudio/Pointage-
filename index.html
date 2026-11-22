@@ -49,7 +49,7 @@
   .cat.complete .cat-h{background:#dff0e5;color:var(--vert)}
   .cat.complete .cat-h .n{color:var(--vert)}
   .item{display:flex;align-items:center;gap:12px;padding:13px 14px;border-top:1px solid var(--ligne);
-    cursor:pointer;user-select:none;min-height:52px}
+    cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;min-height:52px}
   .item:first-child{border-top:0}
   .box{flex:none;width:28px;height:28px;border-radius:8px;border:2.5px solid var(--choco2);
     display:grid;place-items:center;font-weight:900;font-size:18px;color:#fff;transition:background .12s}
@@ -90,6 +90,15 @@
   .section-t{font-weight:700;color:var(--doux);font-size:.85rem;text-transform:uppercase;margin:20px 4px 6px}
   .note{font-size:.82rem;color:var(--doux);margin:4px 4px 0}
   .hidden{display:none}
+  .item.manque{background:#fff1dc}
+  .tag{margin-left:auto;flex:none;font-size:.72rem;font-weight:800;padding:4px 8px;border-radius:20px;background:#ef8a00;color:#fff;white-space:nowrap}
+  .alerte .item.manque{background:rgba(255,255,255,.15)}
+  .reassort{background:#fff1dc;border:2px solid #ef8a00;border-radius:16px;padding:12px 14px;margin-top:4px}
+  .reassort h3{margin:0 0 6px;color:#b35f00;font-size:1rem}
+  .reassort .l{padding:3px 0}
+  .astuce{font-size:.82rem;color:var(--doux);text-align:center;margin:0 0 12px}
+  .p-cat.masquee{opacity:.55}
+  .h-reassort{color:#b35f00;font-weight:600;margin-top:8px}
 </style>
 </head>
 <body>
@@ -154,8 +163,8 @@ function joliJour(s, court=false){
 let S;
 function charger(){
   try { S = JSON.parse(localStorage.getItem(KEY)); } catch(e) { S = null; }
-  if (!S || !Array.isArray(S.categories)) S = { v: 2, categories: configParDefaut(), day: jourPointage(), checks:{}, lastAt:null, history:[] };
-  S.checks ||= {}; S.history ||= [];
+  if (!S || !Array.isArray(S.categories)) S = { v: 2, categories: configParDefaut(), day: jourPointage(), checks:{}, manques:{}, lastAt:null, history:[] };
+  S.checks ||= {}; S.manques ||= {}; S.history ||= [];
   migrer();
 }
 
@@ -176,11 +185,13 @@ function migrer(){
 }
 function sauver(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e) { alert("Impossible d'enregistrer : " + e.message); } }
 
+const visibles = () => S.categories.filter(c => !c.hidden);
+
 function instantane(){
   let fait = 0, total = 0;
-  const categories = S.categories.map(c => ({
+  const categories = visibles().map(c => ({
     name: c.name, alert: c.alert,
-    items: c.items.map(i => { const ok = !!S.checks[i.id]; total++; if (ok) fait++; return { name: i.name, ok }; })
+    items: c.items.map(i => { const ok = !!S.checks[i.id]; total++; if (ok) fait++; return { name: i.name, ok, manque: !!S.manques[i.id] }; })
   }));
   return { day: S.day, fait, total, lastAt: S.lastAt, categories };
 }
@@ -189,12 +200,12 @@ function instantane(){
 function verifierRAZ(){
   const j = jourPointage();
   if (S.day === j) return false;
-  if (Object.values(S.checks).some(Boolean)) {
+  if (Object.values(S.checks).some(Boolean) || Object.values(S.manques).some(Boolean)) {
     S.history = S.history.filter(h => h.day !== S.day);
     S.history.unshift(instantane());
     S.history = S.history.slice(0, MAX_HISTO);
   }
-  S.day = j; S.checks = {}; S.lastAt = null;
+  S.day = j; S.checks = {}; S.manques = {}; S.lastAt = null;
   sauver();
   return true;
 }
@@ -206,7 +217,7 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>'
 
 function entete(){
   document.getElementById('date').textContent = 'Pointage du ' + joliJour(S.day);
-  const tous = S.categories.flatMap(c => c.items);
+  const tous = visibles().flatMap(c => c.items);
   const fait = tous.filter(i => S.checks[i.id]).length;
   document.getElementById('bar').style.width = tous.length ? (fait / tous.length * 100) + '%' : '0';
   document.getElementById('count').textContent = `${fait} / ${tous.length} cochés`;
@@ -216,13 +227,14 @@ function entete(){
 
 function itemHTML(i){
   const ok = !!S.checks[i.id];
-  return `<div class="item ${ok?'ok':''}" data-id="${i.id}"><div class="box">${ok?'✓':''}</div><div class="nom">${esc(i.name)}</div></div>`;
+  const m = !!S.manques[i.id];
+  return `<div class="item ${ok?'ok':''} ${m?'manque':''}" data-id="${i.id}"><div class="box">${ok?'✓':''}</div><div class="nom">${esc(i.name)}</div>${m?'<span class="tag">À réassortir</span>':''}</div>`;
 }
 
 function renduListe(){
-  const alertes = S.categories.filter(c => c.alert && c.items.length);
-  const normales = S.categories.filter(c => !c.alert);
-  const tous = S.categories.flatMap(c => c.items);
+  const alertes = visibles().filter(c => c.alert && c.items.length);
+  const normales = visibles().filter(c => !c.alert);
+  const tous = visibles().flatMap(c => c.items);
   const toutFait = tous.length && tous.every(i => S.checks[i.id]);
   let h = '';
   if (toutFait) h += `<div class="fini">✅ Pointage terminé, bonne soirée !</div>`;
@@ -236,7 +248,10 @@ function renduListe(){
     h += `<div class="cat ${comp?'complete':''}"><div class="cat-h"><span>${comp?'✓ ':''}${esc(c.name)}</span><span class="n">${n}/${c.items.length}</span></div>
       ${c.items.length ? c.items.map(itemHTML).join('') : '<div class="vide">Aucun article</div>'}</div>`;
   }
-  if (!S.categories.length) h = `<div class="vide">Aucune catégorie. Ajoutez-en dans Paramètres.</div>`;
+  const manquants = visibles().flatMap(c => c.items.filter(i => S.manques[i.id]).map(i => ({ c: c.name, n: i.name })));
+  if (manquants.length) h += `<div class="reassort"><h3>⚠️ À réassortir (${manquants.length})</h3>${manquants.map(x => `<div class="l">• ${esc(x.n)} <span style="color:var(--doux);font-size:.85rem">— ${esc(x.c)}</span></div>`).join('')}</div>`;
+  if (!visibles().length) h = `<div class="vide">Aucune catégorie affichée. Ajoutez-en ou réaffichez-en dans Paramètres.</div>`;
+  else h = `<p class="astuce">Appui long sur un article = « À réassortir »</p>` + h;
   $main.innerHTML = h;
 }
 
@@ -246,16 +261,17 @@ function renduHisto(){
     const complet = h.fait === h.total;
     const heure = h.lastAt ? ' · ' + new Date(h.lastAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : '';
     const corps = h.categories.map(c => `<h4>${esc(c.name)}</h4>` + c.items.map(i =>
-      `<div class="l ${i.ok?'fait-l':'manque'}">${i.ok?'✓':'✗'} ${esc(i.name)}</div>`).join('')).join('');
+      `<div class="l ${i.ok?'fait-l':'manque'}">${i.ok?'✓':'✗'} ${esc(i.name)}${i.manque?' <b style="color:#b35f00">— à réassortir</b>':''}</div>`).join('')).join('');
+    const nbM = h.categories.reduce((n, c) => n + c.items.filter(i => i.manque).length, 0);
     return `<details class="h-jour"><summary><span><b>${esc(joliJour(h.day,true))}</b><span style="color:var(--doux);font-size:.85rem">${heure}</span></span>
-      <span class="badge ${complet?'ok':''}">${complet?'Complet':`${h.fait}/${h.total}`}</span></summary><div class="h-corps">${corps}</div></details>`;
+      <span>${nbM?`<span class="badge" style="background:#fff1dc;color:#b35f00">⚠️ ${nbM}</span> `:''}<span class="badge ${complet?'ok':''}">${complet?'Complet':`${h.fait}/${h.total}`}</span></span></summary><div class="h-corps">${corps}</div></details>`;
   }).join('');
 }
 
 function renduParam(){
-  let h = `<p class="note">Les modifications sont enregistrées automatiquement. Cochez « Bandeau important » pour afficher une catégorie en rouge tout en haut.</p>`;
+  let h = `<p class="note">Les modifications sont enregistrées automatiquement. Cochez « Bandeau important » pour afficher une catégorie en rouge tout en haut, ou « Masquer » pour la cacher sans la supprimer (ex. moulages hors saison).</p>`;
   S.categories.forEach((c, ci) => {
-    h += `<div class="p-cat ${c.alert?'alert-on':''}" data-c="${ci}">
+    h += `<div class="p-cat ${c.alert?'alert-on':''} ${c.hidden?'masquee':''}" data-c="${ci}">
       <div class="row">
         <input type="text" value="${esc(c.name)}" data-act="nomCat" placeholder="Nom de la catégorie">
         <button class="ib" data-act="hautCat" ${ci===0?'disabled':''}>▲</button>
@@ -263,6 +279,7 @@ function renduParam(){
         <button class="ib del" data-act="supCat">🗑</button>
       </div>
       <label class="toggle"><input type="checkbox" data-act="alerte" ${c.alert?'checked':''}> Bandeau important (rouge)</label>
+      <label class="toggle"><input type="checkbox" data-act="masquer" ${c.hidden?'checked':''}> Masquer (hors saison)</label>
       <div class="p-items">
         ${c.items.map((i, ii) => `<div class="row" data-i="${ii}">
           <input type="text" value="${esc(i.name)}" data-act="nomItem" placeholder="Article">
@@ -302,6 +319,7 @@ document.querySelector('nav').addEventListener('click', e => {
 $main.addEventListener('click', e => {
   if (vue === 'liste') {
     const it = e.target.closest('.item'); if (!it) return;
+    if (appuiLongFait) { appuiLongFait = false; return; }
     if (verifierRAZ()) { rendu(); return; }
     const id = it.dataset.id;
     if (S.checks[id]) delete S.checks[id]; else S.checks[id] = true;
@@ -329,8 +347,8 @@ $main.addEventListener('click', e => {
       { const ins = $main.querySelectorAll('.p-cat > .row input'); ins[ins.length-1]?.focus(); } return;
     case 'export': exporter(); return;
     case 'import': document.getElementById('fichier').click(); return;
-    case 'decocher': if (!confirm('Tout décocher ? (le pointage en cours ne sera pas archivé)')) return; S.checks = {}; S.lastAt = null; break;
-    case 'defaut': if (!confirm("Remettre la liste d'origine ? Vos modifications de catégories seront perdues.")) return; S.categories = configParDefaut(); S.checks = {}; break;
+    case 'decocher': if (!confirm('Tout décocher ? (le pointage en cours ne sera pas archivé)')) return; S.checks = {}; S.manques = {}; S.lastAt = null; break;
+    case 'defaut': if (!confirm("Remettre la liste d'origine ? Vos modifications de catégories seront perdues.")) return; S.categories = configParDefaut(); S.checks = {}; S.manques = {}; break;
     case 'videHisto': if (!confirm("Effacer tout l'historique ?")) return; S.history = []; break;
     default: return;
   }
@@ -346,10 +364,33 @@ $main.addEventListener('input', e => {
   sauver();
 });
 $main.addEventListener('change', e => {
-  if (vue !== 'param' || e.target.dataset.act !== 'alerte') return;
-  S.categories[+e.target.closest('[data-c]').dataset.c].alert = e.target.checked;
+  if (vue !== 'param') return;
+  const act = e.target.dataset.act; if (act !== 'alerte' && act !== 'masquer') return;
+  S.categories[+e.target.closest('[data-c]').dataset.c][act === 'alerte' ? 'alert' : 'hidden'] = e.target.checked;
   sauver(); renduParam();
 });
+
+// Appui long sur un article : bascule « À réassortir »
+let minuteur = null, appuiLongFait = false, depart = null;
+$main.addEventListener('pointerdown', e => {
+  if (vue !== 'liste') return;
+  const it = e.target.closest('.item'); if (!it) return;
+  appuiLongFait = false; depart = [e.clientX, e.clientY];
+  clearTimeout(minuteur);
+  minuteur = setTimeout(() => {
+    appuiLongFait = true;
+    if (verifierRAZ()) { rendu(); return; }
+    const id = it.dataset.id;
+    if (S.manques[id]) delete S.manques[id]; else S.manques[id] = true;
+    if (navigator.vibrate) navigator.vibrate([30, 40, 30]);
+    sauver(); renduListe();
+  }, 550);
+});
+const annulerAppui = () => clearTimeout(minuteur);
+$main.addEventListener('pointerup', annulerAppui);
+$main.addEventListener('pointercancel', annulerAppui);
+$main.addEventListener('pointermove', e => { if (depart && Math.hypot(e.clientX - depart[0], e.clientY - depart[1]) > 10) annulerAppui(); });
+$main.addEventListener('contextmenu', e => { if (vue === 'liste' && e.target.closest('.item')) e.preventDefault(); });
 
 function exporter(){
   const blob = new Blob([JSON.stringify(S, null, 2)], { type: 'application/json' });
