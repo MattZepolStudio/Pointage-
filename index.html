@@ -128,7 +128,7 @@ function configParDefaut(){
     cat('Sacs', ['Sac 250 g','Sac 400 g','Sac 500 g','Sac 800 g – 1 kg','Sac tubos','Sac 25 macarons',
       'Sac réglette escargots','Sac tissus','Sac petit sujet','Sac grand sujet','Sac « JP » petit papier']),
     cat('Confiseries', ['Pâte à tartiner noisette','Pâte à tartiner caramel','Coffret pâte de fruits',
-      'Sablé pur beurre','Sablé praliné pistache','Sablé praliné arachides','Sablé rocher lait','Truffes','Marrons glacés']),
+      'Sablé pur beurre','Sablé praliné pistache','Sablé praliné arachides','Sablé rocher lait','Truffe ganache','Truffe praliné','Marrons glacés']),
     cat('Oursons', ['Noir','Lait']),
     cat('Ballotins', ['250 g','400 g','500 g','800 g','1 kg','Boîte carrée coffret']),
     cat('Moulages', ['Sapin noir – petit','Sapin noir – grand','Sapin lait – petit','Sapin lait – grand',
@@ -154,8 +154,25 @@ function joliJour(s, court=false){
 let S;
 function charger(){
   try { S = JSON.parse(localStorage.getItem(KEY)); } catch(e) { S = null; }
-  if (!S || !Array.isArray(S.categories)) S = { categories: configParDefaut(), day: jourPointage(), checks:{}, lastAt:null, history:[] };
+  if (!S || !Array.isArray(S.categories)) S = { v: 2, categories: configParDefaut(), day: jourPointage(), checks:{}, lastAt:null, history:[] };
   S.checks ||= {}; S.history ||= [];
+  migrer();
+}
+
+// Mises à jour de la liste pour les téléphones où l'appli est déjà installée (exécutées une seule fois)
+function migrer(){
+  S.v ||= 1;
+  if (S.v < 2) {
+    for (const c of S.categories) {
+      const i = c.items.findIndex(x => x.name.trim().toLowerCase() === 'truffes');
+      if (i >= 0) {
+        c.items[i].name = 'Truffe ganache';
+        if (!c.items.some(x => x.name === 'Truffe praliné')) c.items.splice(i + 1, 0, { id: uid(), name: 'Truffe praliné' });
+      }
+    }
+    S.v = 2;
+  }
+  sauver();
 }
 function sauver(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e) { alert("Impossible d'enregistrer : " + e.message); } }
 
